@@ -1,9 +1,3 @@
-# Diagrama de Casos de Uso
-
-```mermaid
-usecaseDiagram
-actor Administrador
-actor Participante
 
 Participante --> (Entrar no sistema)
 Participante --> (Sair do sistema)
