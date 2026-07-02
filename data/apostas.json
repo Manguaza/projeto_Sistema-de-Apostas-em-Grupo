@@ -1,0 +1,12 @@
+[
+    {
+        "id": 1,
+        "titulo": "Quem vence o jogo?",
+        "descricao": "Aposta entre amigos",
+        "valor_entrada": 20.0,
+        "requisitos": "Aceitar regras do grupo",
+        "grupo_id": 1,
+        "status": "finalizada",
+        "vencedor_id": 2
+    }
+]

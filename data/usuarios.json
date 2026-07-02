@@ -1,0 +1,23 @@
+[
+    {
+        "id": 1,
+        "nome": "Ana",
+        "email": "ana@email.com",
+        "senha": "123",
+        "perfil": "participante"
+    },
+    {
+        "id": 2,
+        "nome": "Bruno",
+        "email": "bruno@email.com",
+        "senha": "123",
+        "perfil": "participante"
+    },
+    {
+        "id": 1,
+        "nome": "Matheus",
+        "email": "matheus@email.com",
+        "senha": "123",
+        "perfil": "participante"
+    }
+]

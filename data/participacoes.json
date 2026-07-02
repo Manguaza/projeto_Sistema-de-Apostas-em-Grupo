@@ -1,0 +1,16 @@
+[
+    {
+        "id": 1,
+        "aposta_id": 1,
+        "usuario_id": 1,
+        "requisitos_aceitos": true,
+        "valor_bloqueado": 20.0
+    },
+    {
+        "id": 2,
+        "aposta_id": 1,
+        "usuario_id": 2,
+        "requisitos_aceitos": true,
+        "valor_bloqueado": 20.0
+    }
+]

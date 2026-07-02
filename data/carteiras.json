@@ -1,0 +1,12 @@
+[
+    {
+        "id": 1,
+        "usuario_id": 1,
+        "saldo": 80.0
+    },
+    {
+        "id": 2,
+        "usuario_id": 2,
+        "saldo": 120.0
+    }
+]
