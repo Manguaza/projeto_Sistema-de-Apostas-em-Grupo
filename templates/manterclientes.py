@@ -31,7 +31,7 @@ class ManterclienteUI:
                 View.cliente_inserir(nome, email, fone, senha)
                 st.success("Cliente inserido com sucesso")
             except Exception as erro:
-                st.error(erro)
+            st.error(erro)
             time.sleep(2)
             st.rerun()
 
