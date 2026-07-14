@@ -11,4 +11,11 @@ class Usuario:
 
     @staticmethod
     def from_dict(dados):
-        return Usuario(dados['id'], dados['nome'], dados['email'], dados['senha'], dados['perfil'])
+        perfil = dados.get('perfil', 'cliente')
+        if perfil == 'admin':
+            from model.administrador import Administrador
+            return Administrador(dados['id'], dados['nome'], dados['email'], dados['senha'])
+        if perfil in ('cliente', 'participante'):
+            from model.cliente import Cliente
+            return Cliente(dados['id'], dados['nome'], dados['email'], dados['senha'])
+        return Usuario(dados['id'], dados['nome'], dados['email'], dados['senha'], perfil)
