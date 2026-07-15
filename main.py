@@ -1,7 +1,6 @@
 import os
 
 import streamlit as st
-
 from model.administrador import Administrador
 from model.aposta import Aposta, REQUISITOS_PADRAO
 from model.carteira import Carteira
@@ -11,12 +10,23 @@ from model.participacao_aposta import ParticipacaoAposta
 from model.resultado import Resultado
 from model.usuario import Usuario
 from persistencia.repositorio_json import RepositorioJson
+from persistencia.armazenamento_imagens import caminho_absoluto
 from service.aposta_service import ApostaService
 from templates.abrirconta import exibir_abertura_conta
 from templates.loginUI import exibir_login
 from templates.manterclientes import exibir_clientes
 from templates.grafico_investimentos import exibir_graficos_investimentos
+from templates.estilo import aplicar_estilo
 from templates.reajustarprodutos import exibir_resultados
+from templates.gerenciamento import (
+    gerenciar_apostas,
+    gerenciar_clientes,
+    gerenciar_grupos,
+    gerenciar_minhas_participacoes,
+    gerenciar_participacoes,
+    gerenciar_resultados,
+    painel_administrador_grupo,
+)
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -56,20 +66,11 @@ def preparar_admin_inicial():
 
 
 def autenticar(email, senha):
-    usuario = buscar_usuario_por_email(email)
-    if usuario is None or usuario.senha != senha:
-        return None
-    return usuario
+    return service.autenticar(email, senha)
 
 
 def cadastrar_cliente(nome, email, senha):
-    if not nome.strip() or not email.strip() or not senha:
-        raise ValueError('Preencha todos os campos.')
-    if buscar_usuario_por_email(email):
-        raise ValueError('Já existe um usuário com esse e-mail.')
-    cliente = Cliente(proximo_id(usuarios_repo), nome.strip(), email.strip(), senha)
-    usuarios_repo.inserir(cliente)
-    carteiras_repo.inserir(Carteira(proximo_id(carteiras_repo), cliente.id, 100.0))
+    service.criar_cliente(nome, email, senha)
     return 'Conta criada com saldo fictício inicial de R$ 100,00.'
 
 
@@ -81,21 +82,40 @@ def mostrar_grupos(grupos):
     if not grupos:
         st.info('Nenhum grupo encontrado.')
         return
-    st.dataframe([{'ID': g.id, 'Nome': g.nome, 'Descrição': g.descricao,
-                   'Clientes': len(g.usuarios_ids)} for g in grupos],
-                 use_container_width=True, hide_index=True)
+    for inicio in range(0, len(grupos), 3):
+        colunas = st.columns(3)
+        for coluna, grupo in zip(colunas, grupos[inicio:inicio + 3]):
+            with coluna:
+                with st.container(border=True):
+                    if grupo.imagem:
+                        st.image(caminho_absoluto(grupo.imagem), width='stretch')
+                    else:
+                        st.markdown('<div class="image-placeholder">👥</div>',
+                                    unsafe_allow_html=True)
+                    st.subheader(grupo.nome)
+                    st.caption(grupo.descricao or 'Sem descrição')
+                    st.write(f'**{len(grupo.usuarios_ids)}** participante(s)')
 
 
 def mostrar_apostas(apostas):
     if not apostas:
         st.info('Nenhuma aposta encontrada.')
         return
-    st.dataframe([{'ID': a.id, 'Título': a.titulo,
-                   'Entrada': f'R$ {a.valor_entrada:.2f}', 'Grupo': a.grupo_id,
-                   'Opções': ' | '.join(a.opcoes) if a.opcoes else 'Aposta antiga',
-                   'Requisitos': ' • '.join(a.requisitos),
-                   'Status': a.status} for a in apostas],
-                 use_container_width=True, hide_index=True)
+    for inicio in range(0, len(apostas), 3):
+        colunas = st.columns(3)
+        for coluna, aposta in zip(colunas, apostas[inicio:inicio + 3]):
+            with coluna:
+                with st.container(border=True):
+                    if aposta.imagem:
+                        st.image(caminho_absoluto(aposta.imagem), width='stretch')
+                    else:
+                        st.markdown('<div class="image-placeholder"></div>',
+                                    unsafe_allow_html=True)
+                    st.subheader(aposta.titulo)
+                    st.caption(aposta.descricao or 'Sem descrição')
+                    st.write(f'**Entrada:** R$ {aposta.valor_entrada:.2f}')
+                    st.write(f'**Status:** {aposta.status}')
+                    st.caption('Opções: ' + (' | '.join(aposta.opcoes) or 'Aposta antiga'))
 
 
 def executar(acao):
@@ -109,7 +129,6 @@ def executar(acao):
 
 def tela_acesso():
     st.title('Sistema de Apostas em Grupo')
-    st.caption('Simulação acadêmica com saldo fictício — não utiliza dinheiro real.')
     aba_login, aba_cadastro = st.tabs(['Entrar', 'Criar conta'])
     with aba_login:
         usuario = exibir_login(autenticar)
@@ -122,7 +141,8 @@ def tela_acesso():
 
 def painel_admin(admin):
     pagina = st.sidebar.radio('Administração',
-        ['Visão geral', 'Clientes', 'Criar grupo', 'Criar aposta', 'Finalizar aposta'])
+        ['Visão geral', 'Clientes', 'Grupos', 'Apostas', 'Participações',
+         'Resultados', 'Finalizar aposta'])
     if pagina == 'Visão geral':
         st.header('Grupos')
         mostrar_grupos(service.listar_grupos())
@@ -131,40 +151,17 @@ def painel_admin(admin):
         exibir_graficos_investimentos(
             apostas_repo.listar(), grupos_repo.listar(), participacoes_repo.listar())
     elif pagina == 'Clientes':
-        exibir_clientes(usuarios_repo.listar(), carteiras_repo.listar())
-    elif pagina == 'Criar grupo':
-        st.header('Criar grupo')
-        with st.form('criar_grupo'):
-            nome = st.text_input('Nome')
-            descricao = st.text_area('Descrição')
-            enviar = st.form_submit_button('Criar grupo')
-        if enviar:
-            executar(lambda: (service.criar_grupo(admin.id, nome, descricao),
-                              'Grupo criado com sucesso.')[1])
-    elif pagina == 'Criar aposta':
-        st.header('Criar aposta')
-        grupos = service.listar_grupos()
-        if not grupos:
-            st.info('Crie um grupo antes de cadastrar uma aposta.')
-            return
-        opcoes = {f'{g.id} — {g.nome}': g.id for g in grupos}
-        with st.form('criar_aposta'):
-            grupo = st.selectbox('Grupo', opcoes)
-            titulo = st.text_input('Título')
-            descricao = st.text_area('Descrição')
-            valor = st.number_input('Valor de entrada (R$)', min_value=0.01, step=1.0)
-            requisitos = st.multiselect(
-                'Requisitos para vencer', REQUISITOS_PADRAO,
-                placeholder='Selecione um ou mais requisitos')
-            opcoes_texto = st.text_area(
-                'Opções de palpite (uma por linha)',
-                placeholder='Time A\nEmpate\nTime B')
-            enviar = st.form_submit_button('Criar aposta')
-        if enviar:
-            alternativas = [opcao.strip() for opcao in opcoes_texto.splitlines()
-                            if opcao.strip()]
-            executar(lambda: (service.criar_aposta(admin.id, opcoes[grupo], titulo,
-                descricao, valor, requisitos, alternativas), 'Aposta criada com sucesso.')[1])
+        gerenciar_clientes(service, admin)
+    elif pagina == 'Grupos':
+        gerenciar_grupos(service, admin)
+        return
+    elif pagina == 'Apostas':
+        gerenciar_apostas(service, admin)
+        return
+    elif pagina == 'Participações':
+        gerenciar_participacoes(service, admin)
+    elif pagina == 'Resultados':
+        gerenciar_resultados(service, admin)
     else:
         st.header('Finalizar aposta')
         abertas = [a for a in apostas_repo.listar() if a.status == 'aberta']
@@ -206,7 +203,8 @@ def painel_cliente(cliente):
     saldo = carteira.saldo if carteira else 0.0
     st.sidebar.metric('Saldo fictício', f'R$ {saldo:.2f}')
     pagina = st.sidebar.radio('Área do cliente',
-        ['Grupos', 'Apostas', 'Investimentos', 'Carteira', 'Resultados'])
+        ['Grupos', 'Administrar grupos', 'Apostas', 'Minhas participações', 'Investimentos',
+         'Carteira', 'Resultados'])
     if pagina == 'Grupos':
         st.header('Grupos disponíveis')
         grupos = service.listar_grupos()
@@ -218,6 +216,8 @@ def painel_cliente(cliente):
             if st.button('Entrar no grupo') and executar(lambda: (
                     service.entrar_em_grupo(opcoes[grupo], cliente.id), 'Você entrou no grupo.')[1]):
                 st.rerun()
+    elif pagina == 'Administrar grupos':
+        painel_administrador_grupo(service, cliente)
     elif pagina == 'Apostas':
         st.header('Apostas dos meus grupos')
         apostas = [a for g in grupos_do_cliente(cliente.id)
@@ -245,6 +245,8 @@ def painel_cliente(cliente):
                         opcoes[escolha], cliente.id, aceitou, palpite),
                     'Participação registrada e saldo bloqueado.')[1]):
                 st.rerun()
+    elif pagina == 'Minhas participações':
+        gerenciar_minhas_participacoes(service, cliente)
     elif pagina == 'Investimentos':
         exibir_graficos_investimentos(
             apostas_repo.listar(), grupos_repo.listar(), participacoes_repo.listar())
@@ -252,16 +254,11 @@ def painel_cliente(cliente):
         st.header('Minha carteira')
         st.metric('Saldo atual', f'R$ {saldo:.2f}')
         with st.form('adicionar_saldo'):
-            valor = st.number_input('Adicionar saldo fictício (R$)', min_value=0.01, step=10.0)
+            valor = st.number_input('Adicionar saldo(R$)', min_value=0.01, step=10.0)
             enviar = st.form_submit_button('Adicionar')
         if enviar:
             def adicionar():
-                atual = buscar_carteira(cliente.id)
-                if atual is None:
-                    atual = Carteira(proximo_id(carteiras_repo), cliente.id, 0.0)
-                    carteiras_repo.inserir(atual)
-                atual.adicionar_saldo(valor)
-                carteiras_repo.atualizar(atual)
+                service.adicionar_saldo(cliente.id, valor)
                 return 'Saldo fictício adicionado.'
             if executar(adicionar):
                 st.rerun()
@@ -275,7 +272,8 @@ def painel_cliente(cliente):
 
 
 def main():
-    st.set_page_config(page_title='Apostas em Grupo', page_icon='🎯', layout='wide')
+    st.set_page_config(page_title='Apostas em Grupo', page_icon='', layout='wide')
+    aplicar_estilo()
     preparar_admin_inicial()
     usuario_email = st.session_state.get('usuario_email')
     usuario = buscar_usuario_por_email(usuario_email) if usuario_email else None
@@ -284,7 +282,7 @@ def main():
         return
     st.sidebar.title(f'Olá, {usuario.nome}')
     st.sidebar.caption('Administrador' if isinstance(usuario, Administrador) else 'Cliente')
-    if st.sidebar.button('Sair', use_container_width=True):
+    if st.sidebar.button('Sair', width='stretch'):
         del st.session_state.usuario_email
         st.rerun()
     st.title('Sistema de Apostas em Grupo')

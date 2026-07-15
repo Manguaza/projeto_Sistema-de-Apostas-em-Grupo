@@ -9,7 +9,8 @@ REQUISITOS_PADRAO = [
 
 class Aposta:
     def __init__(self, id, titulo, descricao, valor_entrada, requisitos, grupo_id,
-                 status='aberta', vencedor_id=None, opcoes=None, opcao_vencedora=None):
+                 status='aberta', vencedor_id=None, opcoes=None, opcao_vencedora=None,
+                 imagem=None):
         self.id = id
         self.titulo = titulo
         self.descricao = descricao
@@ -23,6 +24,7 @@ class Aposta:
         self.vencedor_id = vencedor_id
         self.opcoes = list(opcoes or [])
         self.opcao_vencedora = opcao_vencedora
+        self.imagem = imagem
 
     def abrir(self):
         self.status = 'aberta'
@@ -40,5 +42,6 @@ class Aposta:
         return Aposta(
             dados['id'], dados['titulo'], dados['descricao'], dados['valor_entrada'],
             dados['requisitos'], dados['grupo_id'], dados.get('status', 'aberta'),
-            dados.get('vencedor_id'), dados.get('opcoes', []), dados.get('opcao_vencedora')
+            dados.get('vencedor_id'), dados.get('opcoes', []),
+            dados.get('opcao_vencedora'), dados.get('imagem')
         )

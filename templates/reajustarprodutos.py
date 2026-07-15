@@ -1,28 +1,31 @@
 import streamlit as st
-from View import View
 
 
-class ReajustarProdutoUI:
-    def main():
-        st.header("Reajustar Precos de Produtos")
-        produtos = View.produto_listar()
-        if len(produtos) == 0:
-            st.write("Nenhum produto cadastrado")
-            return
+def exibir_resultados(resultados, nomes_usuarios=None, participacoes=None):
+    """Exibe a opcao correta, vencedores e perdedores de cada aposta."""
+    nomes_usuarios = nomes_usuarios or {}
+    participacoes = participacoes or []
+    st.header('Resultados')
+    if not resultados:
+        st.info('Nenhum resultado registrado.')
+        return
 
-        percentual = st.number_input("Percentual de reajuste", step=1.0, value=0.0)
-        if st.button("Aplicar reajuste"):
-            try:
-                fator = 1 + percentual / 100
-                for produto in produtos:
-                    View.produto_atualizar(
-                        produto.id,
-                        produto.descricao,
-                        produto.preco * fator,
-                        produto.estoque,
-                        produto.idcategoria,
-                    )
-                st.success("Precos reajustados com sucesso")
-                st.rerun()
-            except Exception as erro:
-                st.error(erro) 
+    linhas = []
+    for resultado in resultados:
+        vencedores_ids = resultado.vencedores_ids or [resultado.vencedor_id]
+        linhas.append({
+            'Aposta': resultado.aposta_id,
+            'Opção correta': resultado.opcao_vencedora or 'Não registrada',
+            'Vencedores': ', '.join(
+                nomes_usuarios.get(usuario_id, str(usuario_id))
+                for usuario_id in vencedores_ids
+            ),
+            'Perdedores': ', '.join(
+                nomes_usuarios.get(p.usuario_id, str(p.usuario_id))
+                for p in participacoes
+                if p.aposta_id == resultado.aposta_id
+                and p.usuario_id not in vencedores_ids
+            ) or 'Nenhum',
+            'Descrição': resultado.descricao,
+        })
+    st.dataframe(linhas, width='stretch', hide_index=True)
